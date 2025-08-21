@@ -10,6 +10,9 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import DashboardHome from './pages/DashboardHome';
+import AddRequestPage from './pages/AddRequestPage';
+import AllRequestsPage from './pages/AllRequestsPage';
 import ComplaintsPage from './pages/ComplaintsPage';
 import BloodDonationPage from './pages/BloodDonationPage';
 import ElderlySupport from './pages/ElderlySupport';
@@ -20,6 +23,7 @@ import NotFoundPage from './pages/NotFoundPage';
 
 // Components
 import Navbar from './components/layout/Navbar';
+import DashboardLayout from './components/layout/DashboardLayout';
 import Footer from './components/layout/Footer';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ChatBot from './components/chatbot/ChatBot';
@@ -27,68 +31,90 @@ import ChatBot from './components/chatbot/ChatBot';
 function AppContent() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      
-      <main className="flex-1">
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          
-          {/* Protected Routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/complaints" element={
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={
+          <>
+            <Navbar />
+            <HomePage />
+            <Footer />
+          </>
+        } />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+        {/* Dashboard Routes with Layout */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<DashboardHome />} />
+          <Route path="add-request" element={<AddRequestPage />} />
+          <Route path="requests" element={<AllRequestsPage />} />
+          <Route path="chat" element={<div className="p-8 text-center text-gray-500">Chat AI coming soon...</div>} />
+          <Route path="profile" element={<ProfilePage />} />
+        </Route>
+
+        {/* Legacy Routes (with old navbar/footer) */}
+        <Route path="/complaints" element={
+          <>
+            <Navbar />
             <ProtectedRoute>
               <ComplaintsPage />
             </ProtectedRoute>
-          } />
-          
-          <Route path="/blood-donation" element={
+            <Footer />
+          </>
+        } />
+
+        <Route path="/blood-donation" element={
+          <>
+            <Navbar />
             <ProtectedRoute>
               <BloodDonationPage />
             </ProtectedRoute>
-          } />
-          
-          <Route path="/elderly-support" element={
+            <Footer />
+          </>
+        } />
+
+        <Route path="/elderly-support" element={
+          <>
+            <Navbar />
             <ProtectedRoute>
               <ElderlySupport />
             </ProtectedRoute>
-          } />
-          
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
-          
-          {/* Role-specific Routes */}
-          <Route path="/admin" element={
+            <Footer />
+          </>
+        } />
+
+        {/* Role-specific Routes */}
+        <Route path="/admin" element={
+          <>
+            <Navbar />
             <ProtectedRoute requiredRole="admin">
               <AdminDashboard />
             </ProtectedRoute>
-          } />
-          
-          <Route path="/volunteer" element={
+            <Footer />
+          </>
+        } />
+
+        <Route path="/volunteer" element={
+          <>
+            <Navbar />
             <ProtectedRoute requiredRole="volunteer">
               <VolunteerDashboard />
             </ProtectedRoute>
-          } />
-          
-          {/* 404 Route */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </main>
-      
-      <Footer />
+            <Footer />
+          </>
+        } />
+
+        {/* 404 Route */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+
       <ChatBot />
-      
+
       {/* Toast Notifications */}
       <Toaster
         position="top-right"

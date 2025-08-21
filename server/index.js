@@ -35,6 +35,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/requests', require('./routes/requests'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/blood-requests', require('./routes/bloodRequests'));
 app.use('/api/elderly-support', require('./routes/elderlySupport'));

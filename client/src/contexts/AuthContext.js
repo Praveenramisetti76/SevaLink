@@ -68,7 +68,7 @@ export { AuthContext };
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Set axios default headers
+  // Set axios default headers and interceptors
   useEffect(() => {
     if (state.token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
@@ -77,6 +77,28 @@ export const AuthProvider = ({ children }) => {
       delete axios.defaults.headers.common['Authorization'];
       localStorage.removeItem('token');
     }
+
+    // Add response interceptor to handle JWT errors
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401 ||
+            error.message?.includes('jwt malformed') ||
+            error.response?.data?.message?.includes('jwt malformed')) {
+          // Token is invalid, logout user
+          console.warn('Invalid token detected, logging out user');
+          dispatch({ type: AUTH_ACTIONS.LOGOUT });
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Cleanup interceptor on unmount
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
   }, [state.token]);
 
   // Load user on app start
@@ -84,6 +106,16 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       const token = localStorage.getItem('token');
       if (token) {
+        // Basic token validation - check if it looks like a JWT
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+          console.warn('Invalid token format, clearing token');
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+          dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
+          return;
+        }
+
         try {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           const response = await axios.get('/api/auth/profile');
@@ -96,9 +128,10 @@ export const AuthProvider = ({ children }) => {
           });
         } catch (error) {
           console.error('Failed to load user:', error);
+          // Clear invalid token
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
-          dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
+          dispatch({ type: AUTH_ACTIONS.LOGOUT });
         }
       } else {
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
