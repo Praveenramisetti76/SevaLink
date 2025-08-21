@@ -103,13 +103,6 @@ const LoginPage = () => {
         className="max-w-lg w-full space-y-8"
       >
         <div className="text-center">
-          <Link to="/" className="inline-flex items-center space-x-3 mb-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-2xl">S</span>
-            </div>
-            <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">SevaLink</span>
-          </Link>
-
           <h2 className="text-4xl font-bold text-white mb-3">Welcome Back</h2>
           <p className="text-xl text-gray-300">Sign in to your account to continue</p>
         </div>
@@ -167,14 +160,14 @@ const LoginPage = () => {
                 type="checkbox"
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
                 Remember me
               </label>
             </div>
 
             <Link
               to="/forgot-password"
-              className="text-sm text-primary-600 hover:text-primary-500 font-medium"
+              className="text-sm text-blue-400 hover:text-blue-300 font-medium underline"
             >
               Forgot password?
             </Link>

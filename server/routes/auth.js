@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { sendOTPEmail, sendWelcomeEmail, testEmailConfig } = require('../utils/emailService');
 
 const router = express.Router();
 
@@ -81,6 +82,13 @@ router.post('/register', [
 
     // Generate token
     const token = generateToken(user._id);
+
+    // Send welcome email
+    const emailResult = await sendWelcomeEmail(email, name);
+    if (!emailResult.success) {
+      console.error('Failed to send welcome email:', emailResult.error);
+      // Continue with registration even if email fails
+    }
 
     // Return user data (without password)
     const userData = user.getPublicProfile();
@@ -267,6 +275,289 @@ router.put('/profile', [
     res.status(500).json({
       message: 'Server error updating profile',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send OTP for password reset
+// @access  Public
+router.post('/forgot-password', [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please enter a valid email')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        message: 'No account found with this email address'
+      });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set OTP expiry (10 minutes from now)
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Save OTP to user document
+    user.resetPasswordOTP = otp;
+    user.resetPasswordOTPExpiry = otpExpiry;
+    await user.save();
+
+    // Send OTP via email
+    console.log(`🔢 Generated OTP for ${email}: ${otp}`);
+    let emailSent = false;
+    let emailError = null;
+
+    try {
+      console.log('📧 Attempting to send OTP email...');
+      const emailResult = await sendOTPEmail(email, otp, user.name);
+      emailSent = emailResult.success;
+
+      if (emailResult.success) {
+        console.log('✅ OTP email sent successfully!');
+      } else {
+        console.error('❌ Failed to send OTP email:', emailResult.error);
+        emailError = emailResult.error;
+      }
+    } catch (emailServiceError) {
+      console.error('💥 Email service error:', emailServiceError.message);
+      emailError = emailServiceError.message;
+    }
+
+    // Always return success for security, but provide different messages
+    const responseMessage = emailSent
+      ? 'OTP sent successfully to your email address'
+      : 'OTP generated successfully. Check server console for development testing.';
+
+    res.json({
+      message: responseMessage,
+      emailSent,
+      // In development, always include OTP for testing
+      ...(process.env.NODE_ENV === 'development' && {
+        otp,
+        emailError: emailError || 'No email error',
+        debugInfo: {
+          userFound: true,
+          otpGenerated: true,
+          emailAttempted: true
+        }
+      })
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      message: 'Server error sending OTP',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-otp
+// @desc    Verify OTP for password reset
+// @access  Public
+router.post('/verify-otp', [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please enter a valid email'),
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be 6 digits')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email, otp } = req.body;
+
+    // Find user with matching email and OTP
+    const user = await User.findOne({
+      email,
+      resetPasswordOTP: otp,
+      resetPasswordOTPExpiry: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    res.json({
+      message: 'OTP verified successfully'
+    });
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    res.status(500).json({
+      message: 'Server error verifying OTP',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with OTP
+// @access  Public
+router.post('/reset-password', [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please enter a valid email'),
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be 6 digits'),
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email, otp, newPassword } = req.body;
+
+    // Find user with matching email and OTP
+    const user = await User.findOne({
+      email,
+      resetPasswordOTP: otp,
+      resetPasswordOTPExpiry: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Update password
+    user.password = newPassword; // This will be hashed by the pre-save middleware
+    user.resetPasswordOTP = undefined;
+    user.resetPasswordOTPExpiry = undefined;
+    await user.save();
+
+    res.json({
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      message: 'Server error resetting password',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   GET /api/auth/test-email
+// @desc    Test email configuration
+// @access  Public (for development only)
+router.get('/test-email', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        message: 'This endpoint is only available in development mode'
+      });
+    }
+
+    console.log('Testing email configuration...');
+    console.log('EMAIL_USER:', process.env.EMAIL_USER);
+    console.log('EMAIL_PASS configured:', !!process.env.EMAIL_PASS);
+
+    const result = await testEmailConfig();
+
+    if (result.success) {
+      // Try sending a test OTP email
+      const otpResult = await sendOTPEmail(process.env.EMAIL_USER, '123456', 'Test User');
+
+      res.json({
+        message: 'Email configuration is working correctly',
+        status: 'success',
+        emailTest: otpResult.success ? 'OTP email sent successfully' : 'OTP email failed',
+        details: otpResult
+      });
+    } else {
+      res.status(500).json({
+        message: 'Email configuration failed',
+        error: result.error,
+        status: 'error',
+        troubleshooting: {
+          step1: 'Enable 2-Factor Authentication on Gmail',
+          step2: 'Generate App Password: https://myaccount.google.com/apppasswords',
+          step3: 'Update EMAIL_PASS in .env with the App Password',
+          step4: 'Restart the server'
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Email test error:', error);
+    res.status(500).json({
+      message: 'Failed to test email configuration',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// @route   GET /api/auth/test-users
+// @desc    List test users for development
+// @access  Public (for development only)
+router.get('/test-users', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        message: 'This endpoint is only available in development mode'
+      });
+    }
+
+    const users = await User.find({}, 'name email role createdAt').limit(10);
+
+    res.json({
+      message: 'Test users retrieved',
+      count: users.length,
+      users: users.map(user => ({
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt
+      }))
+    });
+
+  } catch (error) {
+    console.error('Test users error:', error);
+    res.status(500).json({
+      message: 'Failed to retrieve test users',
+      error: error.message
     });
   }
 });

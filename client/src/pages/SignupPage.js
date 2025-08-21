@@ -138,13 +138,6 @@ const SignupPage = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-8"
         >
-          <Link to="/" className="inline-flex items-center space-x-3 mb-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-2xl">S</span>
-            </div>
-            <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">SevaLink</span>
-          </Link>
-
           <h1 className="text-4xl font-bold text-white mb-3">Join Our Community</h1>
           <p className="text-xl text-gray-300">Create your account to access all community services</p>
         </motion.div>
