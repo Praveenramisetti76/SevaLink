@@ -36,20 +36,60 @@ const ProfilePage = () => {
     try {
       showLoading('Updating profile...');
 
-      // API call would go here
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Parse address string into object format expected by backend
+      const addressParts = formData.address.split(',').map(part => part.trim());
+      let addressObj = {};
 
-      closeLoading();
-      showSuccess('Success', 'Profile updated successfully');
-      setIsEditing(false);
+      if (addressParts.length >= 1) {
+        addressObj.street = addressParts[0] || '';
+      }
+      if (addressParts.length >= 2) {
+        addressObj.city = addressParts[1] || '';
+      }
+      if (addressParts.length >= 3) {
+        // Extract state and pincode from the last part
+        const lastPart = addressParts[addressParts.length - 1];
+        const pincodeMatch = lastPart.match(/(\d{6})$/);
+        if (pincodeMatch) {
+          addressObj.pincode = pincodeMatch[1];
+          addressObj.state = lastPart.replace(pincodeMatch[1], '').trim();
+        } else {
+          addressObj.state = lastPart;
+        }
+      }
 
-      // Update user context if needed
-      if (updateUser) {
-        updateUser(formData);
+      const updateData = {
+        ...formData,
+        address: addressObj
+      };
+
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        closeLoading();
+        showSuccess('Success', 'Profile updated successfully');
+        setIsEditing(false);
+
+        // Update user context with new data
+        if (updateUser) {
+          updateUser(data.user);
+        }
+      } else {
+        const errorData = await response.json();
+        closeLoading();
+        showError('Error', errorData.message || 'Failed to update profile');
       }
     } catch (error) {
       closeLoading();
-      showError('Error', 'Failed to update profile');
+      showError('Error', 'Network error while updating profile');
     }
   };
 
@@ -98,13 +138,13 @@ const ProfilePage = () => {
           className="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 p-8"
         >
         <div className="flex items-center space-x-6 mb-8">
-          <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center">
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
             <UserIcon className="w-10 h-10 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{user?.name}</h2>
-            <p className="text-gray-600 capitalize">{user?.role}</p>
-            <p className="text-sm text-gray-500">Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}</p>
+            <h2 className="text-2xl font-bold text-white">{user?.name}</h2>
+            <p className="text-blue-400 capitalize">{user?.role}</p>
+            <p className="text-sm text-gray-300">Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}</p>
           </div>
         </div>
 
@@ -156,16 +196,16 @@ const ProfilePage = () => {
               />
             </div>
 
-            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+            <div className="flex justify-end space-x-4 pt-6 border-t border-white/20">
               <button
                 onClick={handleCancel}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-6 py-2 border border-white/30 text-gray-300 rounded-lg hover:bg-white/10 hover:border-white/50 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:shadow-lg transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent"
               >
                 Save Changes
               </button>
@@ -173,35 +213,35 @@ const ProfilePage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-              <UserIcon className="w-5 h-5 text-gray-500" />
+            <div className="flex items-center space-x-3 p-4 bg-white/10 rounded-lg border border-white/20">
+              <UserIcon className="w-5 h-5 text-blue-400" />
               <div>
-                <p className="text-sm text-gray-500">Full Name</p>
-                <p className="font-medium text-gray-900">{user?.name || 'Not provided'}</p>
+                <p className="text-sm text-gray-300">Full Name</p>
+                <p className="font-medium text-white">{user?.name || 'Not provided'}</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-              <EnvelopeIcon className="w-5 h-5 text-gray-500" />
+            <div className="flex items-center space-x-3 p-4 bg-white/10 rounded-lg border border-white/20">
+              <EnvelopeIcon className="w-5 h-5 text-green-400" />
               <div>
-                <p className="text-sm text-gray-500">Email Address</p>
-                <p className="font-medium text-gray-900">{user?.email || 'Not provided'}</p>
+                <p className="text-sm text-gray-300">Email Address</p>
+                <p className="font-medium text-white">{user?.email || 'Not provided'}</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-              <PhoneIcon className="w-5 h-5 text-gray-500" />
+            <div className="flex items-center space-x-3 p-4 bg-white/10 rounded-lg border border-white/20">
+              <PhoneIcon className="w-5 h-5 text-purple-400" />
               <div>
-                <p className="text-sm text-gray-500">Phone Number</p>
-                <p className="font-medium text-gray-900">{user?.phone || 'Not provided'}</p>
+                <p className="text-sm text-gray-300">Phone Number</p>
+                <p className="font-medium text-white">{user?.phone || 'Not provided'}</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-              <MapPinIcon className="w-5 h-5 text-gray-500" />
+            <div className="flex items-center space-x-3 p-4 bg-white/10 rounded-lg border border-white/20">
+              <MapPinIcon className="w-5 h-5 text-orange-400" />
               <div>
-                <p className="text-sm text-gray-500">Address</p>
-                <p className="font-medium text-gray-900">
+                <p className="text-sm text-gray-300">Address</p>
+                <p className="font-medium text-white">
                   {typeof user?.address === 'object' ?
                     `${user.address.street || ''}, ${user.address.city || ''}, ${user.address.state || ''} ${user.address.pincode || ''}`.trim() || 'Not provided' :
                     user?.address || 'Not provided'
@@ -213,29 +253,7 @@ const ProfilePage = () => {
         )}
       </motion.div>
 
-      {/* Account Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-xl shadow-lg p-6"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Statistics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <p className="text-2xl font-bold text-blue-600">0</p>
-            <p className="text-sm text-gray-600">Total Requests</p>
-          </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <p className="text-2xl font-bold text-green-600">0</p>
-            <p className="text-sm text-gray-600">Completed</p>
-          </div>
-          <div className="text-center p-4 bg-yellow-50 rounded-lg">
-            <p className="text-2xl font-bold text-yellow-600">0</p>
-            <p className="text-sm text-gray-600">Pending</p>
-          </div>
-        </div>
-        </motion.div>
+
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PlusIcon,
@@ -6,14 +6,15 @@ import {
   MapPinIcon,
   ClockIcon,
   UserIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  ChatBubbleLeftRightIcon
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../hooks/useAuth';
 import { showError, showSuccess, showLoading, closeLoading } from '../utils/alerts';
+import { useDebounce } from '../hooks/useDebounce';
 import CreateComplaintForm from '../components/complaints/CreateComplaintForm';
 import ComplaintDetailModal from '../components/complaints/ComplaintDetailModal';
+import Pagination from '../components/ui/Pagination';
+import { CardGridSkeleton } from '../components/ui/SkeletonLoader';
 
 const ComplaintsPage = () => {
   const { user } = useAuth();
@@ -27,16 +28,29 @@ const ComplaintsPage = () => {
     type: '',
     priority: ''
   });
+  const [pagination, setPagination] = useState({
+    current: 1,
+    total: 1,
+    count: 0,
+    totalComplaints: 0,
+    limit: 12
+  });
+
+  // Debounce filters to reduce API calls
+  const debouncedFilters = useDebounce(filters, 500);
 
   // Fetch complaints
-  const fetchComplaints = async () => {
+  const fetchComplaints = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
 
-      Object.entries(filters).forEach(([key, value]) => {
+      Object.entries(debouncedFilters).forEach(([key, value]) => {
         if (value) queryParams.append(key, value);
       });
+
+      queryParams.append('page', page);
+      queryParams.append('limit', pagination.limit);
 
       const response = await fetch(`/api/complaints?${queryParams}`, {
         headers: {
@@ -47,6 +61,7 @@ const ComplaintsPage = () => {
       if (response.ok) {
         const data = await response.json();
         setComplaints(data.complaints);
+        setPagination(data.pagination);
       } else {
         showError('Error', 'Failed to fetch complaints');
       }
@@ -55,11 +70,17 @@ const ComplaintsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedFilters, pagination.limit]);
 
   useEffect(() => {
-    fetchComplaints();
-  }, [filters]);
+    fetchComplaints(1);
+    setPagination(prev => ({ ...prev, current: 1 }));
+  }, [debouncedFilters, fetchComplaints]);
+
+  const handlePageChange = (page) => {
+    fetchComplaints(page);
+    setPagination(prev => ({ ...prev, current: page }));
+  };
 
   const getStatusColor = (status) => {
     const colors = {
@@ -95,11 +116,11 @@ const ComplaintsPage = () => {
 
   const ComplaintCard = ({ complaint }) => (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 cursor-pointer"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 p-6 cursor-pointer"
       onClick={() => setSelectedComplaint(complaint)}
     >
       <div className="flex justify-between items-start mb-4">
@@ -290,22 +311,15 @@ const ComplaintsPage = () => {
 
         {/* Complaints Grid */}
         {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
+          <CardGridSkeleton count={pagination.limit} />
         ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            <AnimatePresence>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence mode="popLayout">
               {complaints.map((complaint) => (
                 <ComplaintCard key={complaint._id} complaint={complaint} />
               ))}
             </AnimatePresence>
-          </motion.div>
+          </div>
         )}
 
         {!loading && complaints.length === 0 && (
@@ -322,6 +336,24 @@ const ComplaintsPage = () => {
                 : "No complaints match your current filters."
               }
             </p>
+          </motion.div>
+        )}
+
+        {/* Pagination */}
+        {!loading && complaints.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8"
+          >
+            <Pagination
+              currentPage={pagination.current}
+              totalPages={pagination.total}
+              totalItems={pagination.totalComplaints}
+              itemsPerPage={pagination.limit}
+              onPageChange={handlePageChange}
+            />
           </motion.div>
         )}
       </div>

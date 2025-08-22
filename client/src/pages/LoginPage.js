@@ -103,6 +103,18 @@ const LoginPage = () => {
         className="max-w-lg w-full space-y-8"
       >
         <div className="text-center">
+          <div className="flex justify-between items-center mb-6">
+            <Link
+              to="/"
+              className="text-blue-400 hover:text-blue-300 transition-colors duration-200 flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Home</span>
+            </Link>
+            <div></div> {/* Spacer for centering */}
+          </div>
           <h2 className="text-4xl font-bold text-white mb-3">Welcome Back</h2>
           <p className="text-xl text-gray-300">Sign in to your account to continue</p>
         </div>

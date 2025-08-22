@@ -1,25 +1,9 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-
-// Pages
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import DashboardPage from './pages/DashboardPage';
-import DashboardHome from './pages/DashboardHome';
-import AddRequestPage from './pages/AddRequestPage';
-import AllRequestsPage from './pages/AllRequestsPage';
-import ComplaintsPage from './pages/ComplaintsPage';
-import BloodDonationPage from './pages/BloodDonationPage';
-import ElderlySupport from './pages/ElderlySupport';
-import AdminDashboard from './pages/AdminDashboard';
-import VolunteerDashboard from './pages/VolunteerDashboard';
-import ProfilePage from './pages/ProfilePage';
-import NotFoundPage from './pages/NotFoundPage';
 
 // Components
 import Navbar from './components/layout/Navbar';
@@ -27,22 +11,57 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import Footer from './components/layout/Footer';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ChatBot from './components/chatbot/ChatBot';
+import PageLoader from './components/ui/PageLoader';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
+
+// Lazy load pages for better performance
+const HomePage = React.lazy(() => import('./pages/HomePage'));
+const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const SignupPage = React.lazy(() => import('./pages/SignupPage'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
+
+const DashboardHome = React.lazy(() => import('./pages/DashboardHome'));
+const AddRequestPage = React.lazy(() => import('./pages/AddRequestPage'));
+const AllRequestsPage = React.lazy(() => import('./pages/AllRequestsPage'));
+const PublicRequestsPage = React.lazy(() => import('./pages/PublicRequestsPage'));
+const AcceptedRequestsPage = React.lazy(() => import('./pages/AcceptedRequestsPage'));
+const AcceptedBloodRequestsPage = React.lazy(() => import('./pages/AcceptedBloodRequestsPage'));
+const ComplaintsPage = React.lazy(() => import('./pages/ComplaintsPage'));
+const BloodDonationPage = React.lazy(() => import('./pages/BloodDonationPage'));
+const ElderlySupport = React.lazy(() => import('./pages/ElderlySupport'));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
+const VolunteerDashboard = React.lazy(() => import('./pages/VolunteerDashboard'));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
+
+
 
 function AppContent() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={
-          <>
-            <Navbar />
-            <HomePage />
-            <Footer />
-          </>
-        } />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={
+            <>
+              <Navbar />
+              <HomePage />
+              <Footer />
+            </>
+          } />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* Dashboard Routes with Layout */}
         <Route path="/dashboard" element={
@@ -53,6 +72,9 @@ function AppContent() {
           <Route index element={<DashboardHome />} />
           <Route path="add-request" element={<AddRequestPage />} />
           <Route path="requests" element={<AllRequestsPage />} />
+          <Route path="all-requests" element={<PublicRequestsPage />} />
+          <Route path="accepted-requests" element={<AcceptedRequestsPage />} />
+          <Route path="blood-matches" element={<AcceptedBloodRequestsPage />} />
           <Route path="chat" element={<div className="p-8 text-center text-gray-500">Chat AI coming soon...</div>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
@@ -109,9 +131,10 @@ function AppContent() {
           </>
         } />
 
-        {/* 404 Route */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          {/* 404 Route */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
 
       <ChatBot />
 
@@ -146,13 +169,15 @@ function AppContent() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
-      </AuthProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

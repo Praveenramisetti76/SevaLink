@@ -7,6 +7,8 @@ import {
   ClipboardDocumentListIcon,
   ChatBubbleLeftRightIcon,
   UserIcon,
+  HeartIcon,
+  CheckCircleIcon,
   BellIcon,
   ChevronDownIcon,
   Bars3Icon,
@@ -25,6 +27,8 @@ const DashboardLayout = () => {
     { name: 'Home', icon: HomeIcon, path: '/dashboard', exact: true },
     { name: 'Add Request', icon: PlusIcon, path: '/dashboard/add-request' },
     { name: 'My Requests', icon: ClipboardDocumentListIcon, path: '/dashboard/requests' },
+    { name: 'All Requests', icon: HeartIcon, path: '/dashboard/all-requests' },
+    { name: 'Blood Matches', icon: CheckCircleIcon, path: '/dashboard/blood-matches' },
     { name: 'Chat AI', icon: ChatBubbleLeftRightIcon, path: '/dashboard/chat' },
     { name: 'Profile', icon: UserIcon, path: '/dashboard/profile' }
   ];

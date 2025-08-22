@@ -19,7 +19,7 @@ const requestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'in_progress', 'completed', 'resolved', 'cancelled'],
+    enum: ['pending', 'accepted'],
     default: 'pending'
   },
   location: {
@@ -51,6 +51,24 @@ const requestSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Phone number is required']
   },
+
+  // Blood request accepters (for tracking who volunteered)
+  accepters: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    acceptedAt: {
+      type: Date,
+      default: Date.now
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted'],
+      default: 'pending'
+    }
+  }],
 
   // Blood request specific fields
   bloodType: {
@@ -300,7 +318,7 @@ requestSchema.statics.getUserDashboard = function(userId) {
   return Promise.all([
     this.countDocuments({ user: userId }),
     this.countDocuments({ user: userId, status: 'pending' }),
-    this.countDocuments({ user: userId, status: { $in: ['completed', 'resolved'] } }),
+    this.countDocuments({ user: userId, status: 'accepted' }),
     this.countDocuments({ user: userId, type: 'blood' }),
     this.countDocuments({ user: userId, type: 'elder_support' }),
     this.countDocuments({ user: userId, type: 'complaint' }),
@@ -308,11 +326,11 @@ requestSchema.statics.getUserDashboard = function(userId) {
       .sort({ createdAt: -1 })
       .limit(5)
       .populate('assignedVolunteer', 'name')
-  ]).then(([total, pending, completed, blood, elderSupport, complaints, recent]) => ({
+  ]).then(([total, pending, accepted, blood, elderSupport, complaints, recent]) => ({
     stats: {
       totalRequests: total,
       pendingRequests: pending,
-      completedRequests: completed,
+      acceptedRequests: accepted,
       bloodRequests: blood,
       elderSupport,
       complaints

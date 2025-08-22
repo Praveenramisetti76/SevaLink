@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { XMarkIcon, MapPinIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import FormInput from '../ui/FormInput';
 import { showError, showSuccess, showLoading, closeLoading } from '../../utils/alerts';
 

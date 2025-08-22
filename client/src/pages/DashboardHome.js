@@ -10,6 +10,7 @@ import {
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../hooks/useAuth';
+import { StatsSkeleton } from '../components/ui/SkeletonLoader';
 
 const DashboardHome = () => {
   const { user } = useAuth();
@@ -17,12 +18,13 @@ const DashboardHome = () => {
   const [stats, setStats] = useState({
     totalRequests: 0,
     pendingRequests: 0,
-    completedRequests: 0,
+    acceptedRequests: 0,
     bloodRequests: 0,
     elderSupport: 0,
     complaints: 0
   });
   const [recentRequests, setRecentRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Fetch dashboard stats and recent requests
@@ -31,6 +33,7 @@ const DashboardHome = () => {
 
   const fetchDashboardData = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/requests/dashboard', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -46,7 +49,7 @@ const DashboardHome = () => {
         setStats({
           totalRequests: 0,
           pendingRequests: 0,
-          completedRequests: 0,
+          acceptedRequests: 0,
           bloodRequests: 0,
           elderSupport: 0,
           complaints: 0
@@ -59,12 +62,14 @@ const DashboardHome = () => {
       setStats({
         totalRequests: 0,
         pendingRequests: 0,
-        completedRequests: 0,
+        acceptedRequests: 0,
         bloodRequests: 0,
         elderSupport: 0,
         complaints: 0
       });
       setRecentRequests([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,12 +102,10 @@ const DashboardHome = () => {
 
   const getStatusColor = (status) => {
     const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-      resolved: 'bg-green-100 text-green-800',
-      completed: 'bg-green-100 text-green-800'
+      pending: 'text-yellow-400',
+      accepted: 'text-green-400'
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'text-gray-400';
   };
 
   const getTypeIcon = (type) => {
@@ -138,12 +141,15 @@ const DashboardHome = () => {
         </motion.div>
 
       {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-      >
+      {loading ? (
+        <StatsSkeleton />
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+        >
         <div className="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -167,13 +173,14 @@ const DashboardHome = () => {
         <div className="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-300 text-sm">Completed</p>
-              <p className="text-3xl font-bold text-green-400">{stats.completedRequests}</p>
+              <p className="text-gray-300 text-sm">Accepted</p>
+              <p className="text-3xl font-bold text-green-400">{stats.acceptedRequests}</p>
             </div>
             <CheckCircleIcon className="w-12 h-12 text-green-400" />
           </div>
         </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Quick Actions */}
       <motion.div

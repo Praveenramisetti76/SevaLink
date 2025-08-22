@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  XMarkIcon, 
-  MapPinIcon, 
-  ClockIcon, 
+import {
+  XMarkIcon,
+  MapPinIcon,
+  ClockIcon,
   UserIcon,
-  ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../hooks/useAuth';
 import { showError, showSuccess, showLoading, closeLoading } from '../../utils/alerts';
