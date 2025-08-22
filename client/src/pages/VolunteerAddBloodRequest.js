@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -9,33 +9,66 @@ import {
 } from '@heroicons/react/24/outline';
 import FormInput from '../components/ui/FormInput';
 import FormSelect from '../components/ui/FormSelect';
-import AddressInput from '../components/ui/AddressInput';
+import SimpleLocationSelector from '../components/ui/SimpleLocationSelector';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { showError, showSuccess } from '../utils/alerts';
+import { useAuth } from '../contexts/AuthContext';
 
 const VolunteerAddBloodRequest = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
+    // Required fields for backend
+    name: '',
+    phone: '',
     bloodType: '',
     urgencyLevel: 'medium',
-    unitsNeeded: 1,
-    patientName: '',
-    patientAge: '',
-    hospitalName: '',
-    contactPhone: '',
-    dueDate: '',
     location: {
+      type: 'manual',
       address: '',
+      street: '',
       city: '',
       state: '',
       pincode: '',
+      country: 'India',
       coordinates: null
     }
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLocationMap, setShowLocationMap] = useState(false);
+
+  // Auto-populate user data when component loads
+  useEffect(() => {
+    if (user) {
+      const updatedFormData = {
+        ...formData,
+        name: user.name || '',
+        phone: user.phone || ''
+      };
+
+      // If user has an address, auto-select account address and populate it
+      if (user.address) {
+        const userAddress = user.address;
+        const addressString = typeof userAddress === 'object' ?
+          `${userAddress.street || ''}, ${userAddress.city || ''}, ${userAddress.state || ''} ${userAddress.pincode || ''}`.trim() :
+          userAddress;
+
+        updatedFormData.location = {
+          type: 'account',
+          address: addressString,
+          street: userAddress.street || '',
+          city: userAddress.city || '',
+          state: userAddress.state || '',
+          pincode: userAddress.pincode || '',
+          country: userAddress.country || 'India',
+          coordinates: userAddress.coordinates || null
+        };
+      }
+
+      setFormData(updatedFormData);
+    }
+  }, [user]);
 
   const bloodTypeOptions = [
     { value: 'A+', label: 'A+' },
@@ -71,47 +104,106 @@ const VolunteerAddBloodRequest = () => {
     }
   };
 
-  const handleLocationChange = (location) => {
+  const handleInputChange = (field, value) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+
+      // Special handling for location type change
+      if (field === 'location.type') {
+        if (value === 'account' && user?.address) {
+          // Auto-populate account address
+          const userAddress = user.address;
+          const addressString = typeof userAddress === 'object' ?
+            `${userAddress.street || ''}, ${userAddress.city || ''}, ${userAddress.state || ''} ${userAddress.pincode || ''}`.trim() :
+            userAddress;
+
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              ...prev.location,
+              type: value,
+              address: addressString,
+              street: userAddress.street || '',
+              city: userAddress.city || '',
+              state: userAddress.state || '',
+              pincode: userAddress.pincode || '',
+              country: userAddress.country || 'India',
+              coordinates: userAddress.coordinates || null
+            }
+          }));
+        } else {
+          // Clear location data for other types
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              ...prev.location,
+              type: value,
+              address: '',
+              street: '',
+              city: '',
+              state: '',
+              pincode: '',
+              country: 'India',
+              coordinates: null
+            }
+          }));
+        }
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value
+          }
+        }));
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
+  const handleLocationSelect = (location) => {
+    const details = location.details || {};
+
     setFormData(prev => ({
       ...prev,
-      location
+      location: {
+        ...prev.location,
+        type: 'map',
+        address: location.address,
+        street: `${details.house_number || ''} ${details.road || ''}`.trim(),
+        city: details.city || details.town || details.village || '',
+        state: details.state || '',
+        pincode: details.postcode || '',
+        country: details.country || 'India',
+        coordinates: location.coordinates
+      }
     }));
-
-    // Clear location-related errors
-    const newErrors = { ...errors };
-    ['address', 'city', 'state', 'pincode'].forEach(field => {
-      delete newErrors[field];
-    });
-    setErrors(newErrors);
+    setShowLocationMap(false);
   };
+
+
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
     if (!formData.bloodType) newErrors.bloodType = 'Blood type is required';
-    if (!formData.patientName.trim()) newErrors.patientName = 'Patient name is required';
-    if (!formData.patientAge || formData.patientAge < 1 || formData.patientAge > 120) {
-      newErrors.patientAge = 'Valid patient age is required';
-    }
-    if (!formData.hospitalName.trim()) newErrors.hospitalName = 'Hospital name is required';
-    if (!formData.contactPhone.trim()) newErrors.contactPhone = 'Contact phone is required';
-    if (!formData.dueDate) newErrors.dueDate = 'Due date is required';
-    if (!formData.unitsNeeded || formData.unitsNeeded < 1) {
-      newErrors.unitsNeeded = 'Valid number of units is required';
-    }
 
     // Validate location
     if (!formData.location.address.trim()) newErrors.address = 'Address is required';
-    if (!formData.location.city.trim()) newErrors.city = 'City is required';
-    if (!formData.location.state.trim()) newErrors.state = 'State is required';
-    if (!formData.location.pincode.trim()) newErrors.pincode = 'PIN code is required';
-
-    // Validate due date is in the future
-    if (formData.dueDate && new Date(formData.dueDate) <= new Date()) {
-      newErrors.dueDate = 'Due date must be in the future';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -129,8 +221,12 @@ const VolunteerAddBloodRequest = () => {
 
     try {
       const requestData = {
-        ...formData,
-        type: 'blood'
+        type: 'blood',
+        name: formData.name,
+        phone: formData.phone,
+        bloodType: formData.bloodType,
+        urgencyLevel: formData.urgencyLevel,
+        location: formData.location
       };
 
       const response = await fetch('/api/requests', {
@@ -144,7 +240,7 @@ const VolunteerAddBloodRequest = () => {
 
       if (response.ok) {
         showSuccess('Success', 'Blood request created successfully!');
-        navigate('/volunteer-dashboard/my-requests');
+        navigate('/volunteer-dashboard');
       } else {
         const errorData = await response.json();
         showError('Error', errorData.message || 'Failed to create blood request');
@@ -157,11 +253,7 @@ const VolunteerAddBloodRequest = () => {
     }
   };
 
-  const getMinDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  };
+
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -194,18 +286,29 @@ const VolunteerAddBloodRequest = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FormInput
-                label="Request Title"
-                name="title"
+                label="Your Name"
+                name="name"
                 type="text"
-                value={formData.title}
+                value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g., Urgent Blood Needed for Surgery"
+                placeholder="Enter your full name"
                 required
-                error={errors.title}
+                error={errors.name}
+              />
+
+              <FormInput
+                label="Contact Phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="Enter your phone number"
+                required
+                error={errors.phone}
               />
 
               <FormSelect
-                label="Blood Type"
+                label="Blood Type Required"
                 name="bloodType"
                 value={formData.bloodType}
                 onChange={handleChange}
@@ -224,117 +327,167 @@ const VolunteerAddBloodRequest = () => {
                 required
                 error={errors.urgencyLevel}
               />
-
-              <FormInput
-                label="Units Needed"
-                name="unitsNeeded"
-                type="number"
-                value={formData.unitsNeeded}
-                onChange={handleChange}
-                placeholder="Number of blood units"
-                min="1"
-                max="10"
-                required
-                error={errors.unitsNeeded}
-              />
             </div>
 
-            <div className="mt-6">
-              <div className="lg:col-span-2">
-                <FormInput
-                  label="Description"
-                  name="description"
-                  type="textarea"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Provide details about the medical condition, urgency, and any specific requirements..."
-                  rows={4}
-                  required
-                  error={errors.description}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Patient Information */}
-          <div>
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">2</div>
-              Patient Information
-            </h2>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <FormInput
-                label="Patient Name"
-                name="patientName"
-                type="text"
-                value={formData.patientName}
-                onChange={handleChange}
-                placeholder="Patient's full name"
-                required
-                error={errors.patientName}
-              />
-
-              <FormInput
-                label="Patient Age"
-                name="patientAge"
-                type="number"
-                value={formData.patientAge}
-                onChange={handleChange}
-                placeholder="Age in years"
-                min="1"
-                max="120"
-                required
-                error={errors.patientAge}
-              />
-
-              <FormInput
-                label="Hospital Name"
-                name="hospitalName"
-                type="text"
-                value={formData.hospitalName}
-                onChange={handleChange}
-                placeholder="Name of the hospital"
-                required
-                error={errors.hospitalName}
-              />
-
-              <FormInput
-                label="Contact Phone"
-                name="contactPhone"
-                type="tel"
-                value={formData.contactPhone}
-                onChange={handleChange}
-                placeholder="Contact number for coordination"
-                required
-                error={errors.contactPhone}
-              />
-
-              <FormInput
-                label="Required By Date"
-                name="dueDate"
-                type="datetime-local"
-                value={formData.dueDate}
-                onChange={handleChange}
-                min={getMinDate()}
-                required
-                error={errors.dueDate}
-              />
-            </div>
           </div>
 
           {/* Location Information */}
           <div>
             <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">3</div>
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">2</div>
               Location Information
             </h2>
             
-            <AddressInput
-              address={formData.location}
-              onChange={handleLocationChange}
-              errors={errors}
-            />
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Location *
+              </label>
+              <div className="space-y-6">
+                {/* Location Type Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <label className="flex items-center p-4 border border-white/30 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                    <input
+                      type="radio"
+                      name="locationType"
+                      value="manual"
+                      checked={formData.location.type === 'manual'}
+                      onChange={(e) => handleInputChange('location.type', e.target.value)}
+                      className="mr-3 text-blue-500"
+                    />
+                    <div>
+                      <p className="text-white font-medium">Manual Entry</p>
+                      <p className="text-gray-300 text-sm">Type address manually</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center p-4 border border-white/30 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                    <input
+                      type="radio"
+                      name="locationType"
+                      value="account"
+                      checked={formData.location.type === 'account'}
+                      onChange={(e) => handleInputChange('location.type', e.target.value)}
+                      className="mr-3 text-blue-500"
+                    />
+                    <div>
+                      <p className="text-white font-medium">Account Address</p>
+                      <p className="text-gray-300 text-sm">Use saved address</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center p-4 border border-white/30 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                    <input
+                      type="radio"
+                      name="locationType"
+                      value="map"
+                      checked={formData.location.type === 'map'}
+                      onChange={(e) => handleInputChange('location.type', e.target.value)}
+                      className="mr-3 text-blue-500"
+                    />
+                    <div>
+                      <p className="text-white font-medium">Select on Map</p>
+                      <p className="text-gray-300 text-sm">Choose from map</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Address Input based on selection */}
+                {formData.location.type === 'manual' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormInput
+                        label="Street Address"
+                        name="street"
+                        type="text"
+                        value={formData.location.street}
+                        onChange={(e) => handleInputChange('location.street', e.target.value)}
+                        placeholder="Enter street address"
+                        error={errors['location.street']}
+                      />
+                      <FormInput
+                        label="City"
+                        name="city"
+                        type="text"
+                        value={formData.location.city}
+                        onChange={(e) => handleInputChange('location.city', e.target.value)}
+                        placeholder="Enter city"
+                        error={errors['location.city']}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormInput
+                        label="State"
+                        name="state"
+                        type="text"
+                        value={formData.location.state}
+                        onChange={(e) => handleInputChange('location.state', e.target.value)}
+                        placeholder="Enter state"
+                        error={errors['location.state']}
+                      />
+                      <FormInput
+                        label="Pincode"
+                        name="pincode"
+                        type="text"
+                        value={formData.location.pincode}
+                        onChange={(e) => handleInputChange('location.pincode', e.target.value)}
+                        placeholder="Enter pincode"
+                        error={errors['location.pincode']}
+                      />
+                      <FormInput
+                        label="Country"
+                        name="country"
+                        type="text"
+                        value={formData.location.country}
+                        onChange={(e) => handleInputChange('location.country', e.target.value)}
+                        placeholder="Enter country"
+                        error={errors['location.country']}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {formData.location.type === 'account' && (
+                  <div className="bg-white/10 border border-white/30 rounded-lg p-4">
+                    <p className="text-white font-medium mb-2">Account Address:</p>
+                    <p className="text-gray-300">
+                      {user?.address ?
+                        (typeof user.address === 'object' ?
+                          `${user.address.street || ''}, ${user.address.city || ''}, ${user.address.state || ''} ${user.address.pincode || ''}`.trim() :
+                          user.address
+                        ) :
+                        'No address found in account'
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {formData.location.type === 'map' && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationMap(true)}
+                      className="flex items-center space-x-2 px-4 py-2 border border-white/30 rounded-lg hover:bg-white/20 transition-colors text-white w-full justify-center"
+                    >
+                      <MapPinIcon className="w-5 h-5 text-gray-300" />
+                      <span>
+                        {formData.location.address ? 'Change Location' : 'Select Location on Map'}
+                      </span>
+                    </button>
+                    {formData.location.address && (
+                      <div className="mt-4 bg-white/10 border border-white/30 rounded-lg p-4">
+                        <p className="text-white font-medium mb-2">Selected Location:</p>
+                        <p className="text-gray-300">{formData.location.address}</p>
+                        {formData.location.coordinates && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Coordinates: {formData.location.coordinates.lat.toFixed(6)}, {formData.location.coordinates.lng.toFixed(6)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Submit Button */}
@@ -366,6 +519,15 @@ const VolunteerAddBloodRequest = () => {
           </div>
         </form>
       </motion.div>
+
+      {/* Location Map Modal */}
+      {showLocationMap && (
+        <SimpleLocationSelector
+          isOpen={showLocationMap}
+          onClose={() => setShowLocationMap(false)}
+          onLocationSelect={handleLocationSelect}
+        />
+      )}
     </div>
   );
 };

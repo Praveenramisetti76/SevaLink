@@ -32,6 +32,7 @@ const VolunteerAcceptedRequests = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Accepted requests data:', data.requests); // Debug log
         setAcceptedRequests(data.requests || []);
       } else {
         showError('Error', 'Failed to fetch accepted requests');
@@ -46,6 +47,7 @@ const VolunteerAcceptedRequests = () => {
   };
 
   const openRequestModal = (request) => {
+    console.log('Opening modal for request:', request); // Debug log
     setSelectedRequest(request);
     setShowModal(true);
   };
@@ -329,7 +331,7 @@ const VolunteerAcceptedRequests = () => {
                   <>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Service Type:</span>
-                      <span className="text-blue-400 font-medium">{request.serviceType}</span>
+                      <span className="text-blue-400 font-medium">{request.serviceType || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Due Date:</span>
@@ -348,7 +350,7 @@ const VolunteerAcceptedRequests = () => {
                   <>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Category:</span>
-                      <span className="text-orange-400 font-medium">{request.category}</span>
+                      <span className="text-orange-400 font-medium">{request.category || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Priority:</span>
@@ -357,7 +359,7 @@ const VolunteerAcceptedRequests = () => {
                         request.priority === 'high' ? 'text-orange-400' :
                         request.priority === 'medium' ? 'text-yellow-400' : 'text-green-400'
                       }`}>
-                        {request.priority?.toUpperCase()}
+                        {request.priority?.toUpperCase() || 'MEDIUM'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -377,30 +379,50 @@ const VolunteerAcceptedRequests = () => {
                   {/* Title */}
                   <div>
                     <span className="text-gray-400 text-sm">Title:</span>
-                    <p className="text-white font-medium mt-1">{request.title}</p>
+                    <p className="text-white font-medium mt-1">{request.title || 'No title provided'}</p>
                   </div>
 
                   {/* Description */}
                   <div>
                     <span className="text-gray-400 text-sm">Description:</span>
-                    <p className="text-gray-300 mt-1 leading-relaxed">{request.description}</p>
+                    <p className="text-gray-300 mt-1 leading-relaxed">{request.description || 'No description provided'}</p>
                   </div>
 
                   {/* Images */}
-                  {request.images && request.images.length > 0 && (
+                  {request.images && request.images.length > 0 ? (
+                    <div>
+                      <span className="text-gray-400 text-sm">Images ({request.images.length}):</span>
+                      <div className="grid grid-cols-2 gap-3 mt-2">
+                        {request.images.map((image, index) => {
+                          console.log('Image data:', image); // Debug log
+                          const imageUrl = typeof image === 'string' ? image : image.url;
+                          return (
+                            <div key={index} className="relative">
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={`Evidence ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg border border-gray-600"
+                                  onError={(e) => {
+                                    console.log('Image failed to load:', imageUrl);
+                                    e.target.style.display = 'none';
+                                  }}
+                                  onLoad={() => console.log('Image loaded successfully:', imageUrl)}
+                                />
+                              ) : (
+                                <div className="w-full h-32 bg-gray-700 rounded-lg border border-gray-600 flex items-center justify-center">
+                                  <span className="text-gray-400 text-sm">No image URL</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
                     <div>
                       <span className="text-gray-400 text-sm">Images:</span>
-                      <div className="grid grid-cols-2 gap-3 mt-2">
-                        {request.images.map((image, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={image.url}
-                              alt={`Complaint evidence ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg border border-gray-600"
-                            />
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-gray-500 text-sm mt-1">No images attached</p>
                     </div>
                   )}
                 </div>

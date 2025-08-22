@@ -24,6 +24,7 @@ const VolunteerDashboardHome = () => {
     rating: 0
   });
   const [recentRequests, setRecentRequests] = useState([]);
+  const [myBloodRequests, setMyBloodRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchVolunteerDashboardData = useCallback(async () => {
@@ -39,6 +40,7 @@ const VolunteerDashboardHome = () => {
         const data = await response.json();
         setStats(data.stats);
         setRecentRequests(data.recentRequests);
+        setMyBloodRequests(data.myBloodRequests || []);
       } else {
         // Fallback to mock data if API fails
         setStats({
@@ -50,6 +52,7 @@ const VolunteerDashboardHome = () => {
           rating: user?.volunteerInfo?.rating || 0
         });
         setRecentRequests([]);
+        setMyBloodRequests([]);
       }
     } catch (error) {
       console.error('Error fetching volunteer dashboard data:', error);
@@ -63,6 +66,7 @@ const VolunteerDashboardHome = () => {
         rating: user?.volunteerInfo?.rating || 0
       });
       setRecentRequests([]);
+      setMyBloodRequests([]);
     } finally {
       setLoading(false);
     }
@@ -301,6 +305,79 @@ const VolunteerDashboardHome = () => {
             <ClipboardDocumentListIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-300 text-lg">No recent activity</p>
             <p className="text-gray-400">Start helping your community today!</p>
+          </div>
+        )}
+      </motion.div>
+
+      {/* My Blood Requests Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20"
+      >
+        <h2 className="text-2xl font-bold text-white mb-6">My Blood Requests</h2>
+
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gray-600 rounded-lg"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-600 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-600 rounded w-1/2"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : myBloodRequests.length > 0 ? (
+          <div className="space-y-4">
+            {myBloodRequests.map((request) => (
+              <div
+                key={request._id}
+                className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                onClick={() => navigate(`/volunteer-dashboard/my-requests`)}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <HeartIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">{request.bloodType} Blood Request</h3>
+                    <p className="text-sm text-gray-300 flex items-center">
+                      <CalendarIcon className="w-4 h-4 mr-1" />
+                      {formatDate(request.createdAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    request.status === 'accepted' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {request.status.toUpperCase()}
+                  </span>
+                  {request.accepters && request.accepters.length > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {request.accepters.length} volunteer{request.accepters.length > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <HeartIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-300 text-lg">No blood requests created</p>
+            <p className="text-gray-400">Create your first blood request to help others</p>
+            <button
+              onClick={() => navigate('/volunteer-dashboard/add-blood-request')}
+              className="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Create Blood Request
+            </button>
           </div>
         )}
       </motion.div>

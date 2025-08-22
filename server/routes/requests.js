@@ -285,6 +285,16 @@ router.get('/volunteer/dashboard', auth, async (req, res) => {
     .populate('user', 'name email')
     .select('title description type status createdAt location dueDate');
 
+    // Get volunteer's own blood requests (like in user dashboard)
+    const myBloodRequests = await Request.find({
+      user: req.user.userId,
+      type: 'blood'
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate('accepters.user', 'name email phone')
+    .select('bloodType urgencyLevel status createdAt location accepters');
+
     // Get volunteer info from user
     const User = require('../models/User');
     const volunteer = await User.findById(req.user.userId);
@@ -301,7 +311,8 @@ router.get('/volunteer/dashboard', auth, async (req, res) => {
     res.json({
       message: 'Volunteer dashboard data retrieved successfully',
       stats,
-      recentRequests
+      recentRequests,
+      myBloodRequests
     });
 
   } catch (error) {
@@ -323,20 +334,20 @@ router.get('/accepted', auth, async (req, res) => {
     .populate('accepters.user', 'name email phone')
     .sort({ 'accepters.acceptedAt': -1 });
 
+    console.log(`Found ${requests.length} accepted requests for user ${req.user.userId}`);
+
     // Filter to only show the user's acceptance details
     const acceptedRequests = requests.map(request => {
       const userAcceptance = request.accepters.find(
         accepter => accepter.user._id.toString() === req.user.userId.toString()
       );
 
-      return {
+      const baseRequest = {
         _id: request._id,
         type: request.type,
         name: request.name,
         phone: request.phone,
         location: request.location,
-        bloodType: request.bloodType,
-        urgencyLevel: request.urgencyLevel,
         status: request.status,
         createdAt: request.createdAt,
         requester: request.user,
@@ -345,6 +356,24 @@ router.get('/accepted', auth, async (req, res) => {
           status: userAcceptance?.status || 'accepted'
         }
       };
+
+      // Add type-specific fields
+      if (request.type === 'blood') {
+        baseRequest.bloodType = request.bloodType;
+        baseRequest.urgencyLevel = request.urgencyLevel;
+      } else if (request.type === 'elder_support') {
+        baseRequest.serviceType = request.serviceType;
+        baseRequest.dueDate = request.dueDate;
+        baseRequest.urgencyLevel = request.urgencyLevel;
+      } else if (request.type === 'complaint') {
+        baseRequest.title = request.title;
+        baseRequest.description = request.description;
+        baseRequest.category = request.category;
+        baseRequest.priority = request.priority;
+        baseRequest.images = request.images;
+      }
+
+      return baseRequest;
     });
 
     res.json({
@@ -847,11 +876,9 @@ router.post('/:id/volunteer', auth, async (req, res) => {
       status: 'accepted'
     });
 
-    // Update request status to accepted (for blood and elder support)
-    // For complaints, keep status as pending until admin assigns
-    if (request.type !== 'complaint') {
-      request.status = 'accepted';
-    }
+    // Update request status to accepted for all types
+    // Volunteers accepting means they are willing to help
+    request.status = 'accepted';
 
     await request.save();
 

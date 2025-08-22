@@ -350,6 +350,49 @@ router.post('/:id/assign/:volunteerId', auth, async (req, res) => {
 
     await complaint.assignVolunteer(req.params.volunteerId);
     await complaint.populate('assignedVolunteer', 'name phone email avatar');
+    await complaint.populate('citizen', 'name phone email');
+
+    // Create a Request record for the volunteer's accepted requests
+    const Request = require('../models/Request');
+
+    const requestData = {
+      type: 'complaint',
+      user: complaint.citizen._id,
+      name: complaint.citizen.name,
+      phone: complaint.contactInfo?.phone || complaint.citizen.phone,
+      title: complaint.title,
+      description: complaint.description,
+      category: complaint.category,
+      priority: complaint.priority,
+      images: complaint.images || [],
+      location: {
+        type: 'manual',
+        address: complaint.location?.address?.street ||
+                `${complaint.location?.address?.city || ''}, ${complaint.location?.address?.state || ''}`.trim().replace(/^,\s*|,\s*$/g, '') ||
+                'Location not specified',
+        street: complaint.location?.address?.street || '',
+        city: complaint.location?.address?.city || '',
+        state: complaint.location?.address?.state || '',
+        pincode: complaint.location?.address?.pincode || '',
+        country: 'India',
+        coordinates: complaint.location?.coordinates || null
+      },
+      status: 'accepted',
+      accepters: [{
+        user: req.params.volunteerId,
+        acceptedAt: new Date(),
+        status: 'accepted'
+      }]
+    };
+
+    try {
+      const request = new Request(requestData);
+      await request.save();
+      console.log('Created Request record for complaint:', request._id);
+    } catch (error) {
+      console.error('Error creating Request record for complaint:', error);
+      // Don't fail the complaint assignment if Request creation fails
+    }
 
     res.json({
       message: 'Complaint assigned successfully',

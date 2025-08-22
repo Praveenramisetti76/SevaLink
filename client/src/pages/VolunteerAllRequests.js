@@ -112,7 +112,9 @@ const VolunteerAllRequests = () => {
           requesterName: complaint.citizen?.name || 'Citizen',
           citizen: complaint.citizen,
           // Add phone from contactInfo for complaints
-          phone: complaint.contactInfo?.phone || 'Hidden until you volunteer'
+          phone: complaint.contactInfo?.phone || 'Hidden until you volunteer',
+          // Include images for complaints
+          images: complaint.images || []
         })) || [];
         allRequests = [...allRequests, ...formattedComplaints];
         totalCount += complaintsData.total || 0;
@@ -170,14 +172,17 @@ const VolunteerAllRequests = () => {
           }
         });
       } else if (request.type === 'complaint') {
-        // Check if this complaint was created through requests endpoint
-        // All complaints from the all-requests page are from the requests collection
-        // So we should use the requests volunteer endpoint for consistency
-        response = await fetch(`/api/requests/${requestId}/volunteer`, {
+        // Use the complaints API for volunteer applications
+        response = await fetch(`/api/complaints/${requestId}/apply`, {
           method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+          },
+          body: JSON.stringify({
+            message: 'I would like to help with this complaint.',
+            estimatedTime: 'Within 24 hours'
+          })
         });
       } else if (request.type === 'elder_support') {
         // Elder support now uses the same volunteer endpoint as blood requests
@@ -190,7 +195,11 @@ const VolunteerAllRequests = () => {
       }
 
       if (response && response.ok) {
-        showSuccess('Success', 'Request accepted successfully!');
+        if (request.type === 'complaint') {
+          showSuccess('Success', 'Application submitted successfully! You will be notified if selected.');
+        } else {
+          showSuccess('Success', 'Request accepted successfully!');
+        }
         fetchRequests(pagination.current); // Refresh the list
         setShowModal(false);
       } else if (response) {
@@ -825,17 +834,25 @@ const VolunteerAllRequests = () => {
                       {acceptingRequest === selectedRequest._id ? (
                         <>
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          <span>Accepting...</span>
+                          <span>{selectedRequest.type === 'complaint' ? 'Applying...' : 'Accepting...'}</span>
                         </>
                       ) : (
                         <>
                           <CheckCircleIcon className="w-5 h-5" />
-                          <span>I Want to Help - Contact Requester</span>
+                          <span>
+                            {selectedRequest.type === 'complaint'
+                              ? 'Apply to Help'
+                              : 'I Want to Help - Contact Requester'
+                            }
+                          </span>
                         </>
                       )}
                     </button>
                     <p className="text-center text-gray-400 text-xs">
-                      Your contact information will be shared with the requester
+                      {selectedRequest.type === 'complaint'
+                        ? 'You will be notified if your application is accepted'
+                        : 'Your contact information will be shared with the requester'
+                      }
                     </p>
                   </div>
                 )}
