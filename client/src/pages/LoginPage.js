@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import FormInput from '../components/ui/FormInput';
@@ -15,11 +15,22 @@ const LoginPage = () => {
   const [statusMessage, setStatusMessage] = useState({ type: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const { login, isAuthenticated, user } = useAuth();
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+  // If already authenticated, redirect based on user role
+  if (isAuthenticated && user && user.role) {
+    console.log('User authenticated, role:', user?.role);
+
+    if (user?.role === 'volunteer') {
+      console.log('Redirecting volunteer to volunteer dashboard');
+      return <Navigate to="/volunteer-dashboard" replace />;
+    } else if (user?.role === 'admin') {
+      console.log('Redirecting admin to admin dashboard');
+      return <Navigate to="/admin" replace />;
+    } else {
+      console.log('Redirecting citizen to user dashboard');
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -48,13 +59,11 @@ const LoginPage = () => {
         // Show success message inline
         setStatusMessage({
           type: 'success',
-          message: 'Login successful! Redirecting to dashboard...'
+          message: 'Login successful! Redirecting...'
         });
 
-        // Redirect after 3 seconds
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 3000);
+        // The redirect will be handled by the top-level redirect logic
+        // once the AuthContext updates the authentication state
       } else {
         // Show error message inline without reload
         setStatusMessage({

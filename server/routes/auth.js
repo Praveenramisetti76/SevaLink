@@ -35,7 +35,13 @@ router.post('/register', [
   body('role')
     .optional()
     .isIn(['citizen', 'volunteer'])
-    .withMessage('Role must be either citizen or volunteer')
+    .withMessage('Role must be either citizen or volunteer'),
+  body('volunteerKey')
+    .if(body('role').equals('volunteer'))
+    .notEmpty()
+    .withMessage('Volunteer access key is required for volunteer registration')
+    .isLength({ min: 8 })
+    .withMessage('Volunteer access key must be at least 8 characters')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -47,17 +53,33 @@ router.post('/register', [
       });
     }
 
-    const { name, email, password, phone, role = 'citizen', address } = req.body;
+    const { name, email, password, phone, role = 'citizen', address, volunteerKey } = req.body;
+
+    // Validate volunteer key if role is volunteer
+    if (role === 'volunteer') {
+      const validVolunteerKeys = [
+        'VOLUNTEER2025',
+        'SEVALINK_VOL',
+        'COMMUNITY_HELPER',
+        'VOLUNTEER_ACCESS'
+      ];
+
+      if (!volunteerKey || !validVolunteerKeys.includes(volunteerKey.toUpperCase())) {
+        return res.status(400).json({
+          message: 'Invalid volunteer access key. Please contact your organization administrator.'
+        });
+      }
+    }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { phone }] 
+    const existingUser = await User.findOne({
+      $or: [{ email }, { phone }]
     });
 
     if (existingUser) {
       return res.status(400).json({
-        message: existingUser.email === email 
-          ? 'User with this email already exists' 
+        message: existingUser.email === email
+          ? 'User with this email already exists'
           : 'User with this phone number already exists'
       });
     }
@@ -164,6 +186,9 @@ router.post('/login', [
 
     // Return user data (without password)
     const userData = user.getPublicProfile();
+
+    // Debug logging
+    console.log('Login successful for user:', userData.email, 'Role:', userData.role);
 
     res.json({
       message: 'Login successful',

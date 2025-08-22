@@ -23,6 +23,13 @@ const AUTH_ACTIONS = {
 const authReducer = (state, action) => {
   switch (action.type) {
     case AUTH_ACTIONS.LOGIN_SUCCESS:
+      // Store in localStorage
+      localStorage.setItem('token', action.payload.token);
+      localStorage.setItem('user', JSON.stringify(action.payload.user));
+
+      // Set axios default header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${action.payload.token}`;
+
       return {
         ...state,
         user: action.payload.user,
@@ -77,8 +84,19 @@ export const AuthProvider = ({ children }) => {
       delete axios.defaults.headers.common['Authorization'];
       localStorage.removeItem('token');
     }
+  }, [state.token]);
 
-    // Add response interceptor to handle JWT errors
+  // Store user data in localStorage
+  useEffect(() => {
+    if (state.user) {
+      localStorage.setItem('user', JSON.stringify(state.user));
+    } else {
+      localStorage.removeItem('user');
+    }
+  }, [state.user]);
+
+  // Add response interceptor to handle JWT errors
+  useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -89,6 +107,7 @@ export const AuthProvider = ({ children }) => {
           console.warn('Invalid token detected, logging out user');
           dispatch({ type: AUTH_ACTIONS.LOGOUT });
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
           delete axios.defaults.headers.common['Authorization'];
         }
         return Promise.reject(error);
@@ -99,7 +118,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       axios.interceptors.response.eject(interceptor);
     };
-  }, [state.token]);
+  }, []);
 
   // Load user on app start
   useEffect(() => {
@@ -111,6 +130,7 @@ export const AuthProvider = ({ children }) => {
         if (tokenParts.length !== 3) {
           console.warn('Invalid token format, clearing token');
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
           delete axios.defaults.headers.common['Authorization'];
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
           return;
@@ -130,6 +150,7 @@ export const AuthProvider = ({ children }) => {
           console.error('Failed to load user:', error);
           // Clear invalid token
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
           delete axios.defaults.headers.common['Authorization'];
           dispatch({ type: AUTH_ACTIONS.LOGOUT });
         }

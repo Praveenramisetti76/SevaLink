@@ -8,6 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 // Components
 import Navbar from './components/layout/Navbar';
 import DashboardLayout from './components/layout/DashboardLayout';
+import VolunteerDashboardLayout from './components/layout/VolunteerDashboardLayout';
 import Footer from './components/layout/Footer';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ChatBot from './components/chatbot/ChatBot';
@@ -31,10 +32,14 @@ const SignupPage = React.lazy(() => import('./pages/SignupPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 
 const DashboardHome = React.lazy(() => import('./pages/DashboardHome'));
+const VolunteerDashboardHome = React.lazy(() => import('./pages/VolunteerDashboardHome'));
 const AddRequestPage = React.lazy(() => import('./pages/AddRequestPage'));
+const VolunteerAddBloodRequest = React.lazy(() => import('./pages/VolunteerAddBloodRequest'));
 const AllRequestsPage = React.lazy(() => import('./pages/AllRequestsPage'));
+const VolunteerAllRequests = React.lazy(() => import('./pages/VolunteerAllRequests'));
 const PublicRequestsPage = React.lazy(() => import('./pages/PublicRequestsPage'));
 const AcceptedRequestsPage = React.lazy(() => import('./pages/AcceptedRequestsPage'));
+const VolunteerAcceptedRequests = React.lazy(() => import('./pages/VolunteerAcceptedRequests'));
 const AcceptedBloodRequestsPage = React.lazy(() => import('./pages/AcceptedBloodRequestsPage'));
 const ComplaintsPage = React.lazy(() => import('./pages/ComplaintsPage'));
 const BloodDonationPage = React.lazy(() => import('./pages/BloodDonationPage'));
@@ -63,9 +68,9 @@ function AppContent() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-        {/* Dashboard Routes with Layout */}
+        {/* Dashboard Routes with Layout - Citizens only */}
         <Route path="/dashboard" element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="citizen">
             <DashboardLayout />
           </ProtectedRoute>
         }>
@@ -75,6 +80,21 @@ function AppContent() {
           <Route path="all-requests" element={<PublicRequestsPage />} />
           <Route path="accepted-requests" element={<AcceptedRequestsPage />} />
           <Route path="blood-matches" element={<AcceptedBloodRequestsPage />} />
+          <Route path="chat" element={<div className="p-8 text-center text-gray-500">Chat AI coming soon...</div>} />
+          <Route path="profile" element={<ProfilePage />} />
+        </Route>
+
+        {/* Volunteer Dashboard Routes with Layout */}
+        <Route path="/volunteer-dashboard" element={
+          <ProtectedRoute requiredRole="volunteer">
+            <VolunteerDashboardLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<VolunteerDashboardHome />} />
+          <Route path="add-blood-request" element={<VolunteerAddBloodRequest />} />
+          <Route path="my-requests" element={<AllRequestsPage />} />
+          <Route path="all-requests" element={<VolunteerAllRequests />} />
+          <Route path="accepted-requests" element={<VolunteerAcceptedRequests />} />
           <Route path="chat" element={<div className="p-8 text-center text-gray-500">Chat AI coming soon...</div>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>

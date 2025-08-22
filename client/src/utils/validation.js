@@ -71,6 +71,15 @@ export const validateAddress = (address) => {
   return errors;
 };
 
+// Validate volunteer key
+export const validateVolunteerKey = (key, role) => {
+  if (role === 'volunteer') {
+    if (!key) return 'Volunteer access key is required';
+    if (key.length < 8) return 'Volunteer access key must be at least 8 characters';
+  }
+  return '';
+};
+
 // Validate entire signup form
 export const validateSignupForm = (formData) => {
   const errors = {};
@@ -97,6 +106,10 @@ export const validateSignupForm = (formData) => {
 
   // Validate role
   if (!formData.role) errors.role = 'Please select a role';
+
+  // Validate volunteer key if role is volunteer
+  const volunteerKeyError = validateVolunteerKey(formData.volunteerKey, formData.role);
+  if (volunteerKeyError) errors.volunteerKey = volunteerKeyError;
 
   // Validate address
   if (formData.address) {

@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+
 import {
   Bars3Icon,
   XMarkIcon,
-  ChevronDownIcon,
-  HeartIcon,
-  ExclamationTriangleIcon,
-  UserGroupIcon,
-  ChatBubbleLeftRightIcon
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../hooks/useAuth';
 // import { useTheme } from '../../contexts/ThemeContext'; // Commented out for now
@@ -50,12 +47,7 @@ const Navbar = () => {
     { name: 'Contact', path: '#contact', icon: null },
   ];
 
-  const serviceLinks = [
-    { name: 'Complaints', path: '/complaints', icon: ExclamationTriangleIcon },
-    { name: 'Blood Donation', path: '/blood-donation', icon: HeartIcon },
-    { name: 'Elderly Support', path: '/elderly-support', icon: UserGroupIcon },
-    { name: 'Chat Assistant', path: '#chatbot', icon: ChatBubbleLeftRightIcon },
-  ];
+
 
   return (
     <motion.nav
@@ -102,30 +94,6 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            
-            {isAuthenticated && (
-              <div className="relative group">
-                <button className="flex items-center space-x-1 text-lg font-semibold transition-colors duration-200 hover:text-purple-400 text-white">
-                  <span>Services</span>
-                  <ChevronDownIcon className="w-5 h-5" />
-                </button>
-                
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <div className="p-2">
-                    {serviceLinks.map((service) => (
-                      <Link
-                        key={service.name}
-                        to={service.path}
-                        className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg transition-colors duration-200"
-                      >
-                        <service.icon className="w-5 h-5" />
-                        <span>{service.name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Auth Buttons / User Menu */}
@@ -230,22 +198,6 @@ const Navbar = () => {
                     {link.name}
                   </Link>
                 ))}
-                
-                {isAuthenticated && (
-                  <>
-                    <hr className="my-4" />
-                    {serviceLinks.map((service) => (
-                      <Link
-                        key={service.name}
-                        to={service.path}
-                        className="flex items-center space-x-3 text-white hover:text-purple-400 font-medium transition-colors duration-200"
-                      >
-                        <service.icon className="w-5 h-5" />
-                        <span>{service.name}</span>
-                      </Link>
-                    ))}
-                  </>
-                )}
                 
                 <hr className="my-4" />
                 

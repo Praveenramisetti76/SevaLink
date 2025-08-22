@@ -22,6 +22,8 @@ const FormSelect = ({
     w-full px-4 py-3 border rounded-xl transition-all duration-200
     focus:outline-none focus:ring-2 focus:border-transparent
     appearance-none bg-white/10 cursor-pointer text-white
+    [&>option]:bg-gray-800 [&>option]:text-white [&>option]:py-2
+    [&>option:checked]:bg-purple-600 [&>option:hover]:bg-purple-500
     ${hasError
       ? 'border-red-400 focus:ring-red-500 bg-red-900/20'
       : isFocused
@@ -54,13 +56,31 @@ const FormSelect = ({
           required={required}
           disabled={disabled}
           className={selectClasses}
+          style={{
+            colorScheme: 'dark'
+          }}
           {...props}
         >
-          <option value="" disabled>
+          <option
+            value=""
+            disabled
+            style={{
+              backgroundColor: '#374151',
+              color: '#9CA3AF'
+            }}
+          >
             {placeholder}
           </option>
           {options.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option
+              key={option.value}
+              value={option.value}
+              style={{
+                backgroundColor: '#374151',
+                color: '#FFFFFF',
+                padding: '8px'
+              }}
+            >
               {option.label}
             </option>
           ))}

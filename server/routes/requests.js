@@ -249,6 +249,70 @@ router.get('/dashboard', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/requests/volunteer/dashboard
+// @desc    Get volunteer's dashboard data
+// @access  Private (Volunteer only)
+router.get('/volunteer/dashboard', auth, async (req, res) => {
+  try {
+    // Get volunteer stats
+    const acceptedRequests = await Request.find({
+      'accepters.user': req.user.userId
+    }).countDocuments();
+
+    const activeRequests = await Request.find({
+      'accepters.user': req.user.userId,
+      status: { $in: ['accepted', 'in_progress'] }
+    }).countDocuments();
+
+    const bloodDonations = await Request.find({
+      'accepters.user': req.user.userId,
+      type: 'blood',
+      status: 'completed'
+    }).countDocuments();
+
+    const elderSupport = await Request.find({
+      'accepters.user': req.user.userId,
+      type: 'elder_support',
+      status: 'completed'
+    }).countDocuments();
+
+    // Get recent requests the volunteer has accepted
+    const recentRequests = await Request.find({
+      'accepters.user': req.user.userId
+    })
+    .sort({ 'accepters.acceptedAt': -1 })
+    .limit(5)
+    .populate('user', 'name email')
+    .select('title description type status createdAt location dueDate');
+
+    // Get volunteer info from user
+    const User = require('../models/User');
+    const volunteer = await User.findById(req.user.userId);
+
+    const stats = {
+      totalHelped: volunteer?.volunteerInfo?.totalHelped || bloodDonations + elderSupport,
+      activeRequests,
+      acceptedRequests,
+      bloodDonations,
+      elderSupport,
+      rating: volunteer?.volunteerInfo?.rating || 0
+    };
+
+    res.json({
+      message: 'Volunteer dashboard data retrieved successfully',
+      stats,
+      recentRequests
+    });
+
+  } catch (error) {
+    console.error('Volunteer dashboard data error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving volunteer dashboard data',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
 // Get requests that user has accepted (volunteered for)
 router.get('/accepted', auth, async (req, res) => {
   try {
@@ -348,6 +412,139 @@ router.get('/blood/accepted', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch accepted blood requests'
+    });
+  }
+});
+
+// Get public requests (for volunteers) - MUST come before /:id route
+router.get('/public', auth, async (req, res) => {
+  try {
+    const {
+      type,
+      status = 'pending',
+      sortBy = 'newest',
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    let query = {
+      status: 'pending', // Only show pending requests
+      user: { $ne: req.user.userId } // Exclude user's own requests
+    };
+
+    // Apply filters
+    if (type) query.type = type;
+    if (status) {
+      const statusArray = status.split(',').map(s => s.trim());
+      query.status = { $in: statusArray };
+    }
+
+    // Build sort criteria
+    let sortCriteria = {};
+    switch (sortBy) {
+      case 'oldest':
+        sortCriteria = { createdAt: 1 };
+        break;
+      case 'updated':
+        sortCriteria = { updatedAt: -1 };
+        break;
+      default: // newest
+        sortCriteria = { createdAt: -1 };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await Request.countDocuments(query);
+
+    const requests = await Request.find(query)
+      .populate('user', 'name')
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Show user names but hide sensitive contact information for public view
+    const publicRequests = requests.map(request => ({
+      _id: request._id,
+      title: request.title,
+      type: request.type,
+      bloodType: request.bloodType,
+      unitsNeeded: request.unitsNeeded,
+      urgencyLevel: request.urgencyLevel,
+      description: request.description,
+      location: request.location,
+      status: request.status,
+      createdAt: request.createdAt,
+      requesterName: request.user ? request.user.name : 'Citizen',
+      name: request.name, // Include the name field
+      // Elder support specific fields
+      serviceType: request.serviceType,
+      dueDate: request.dueDate,
+      // Complaint specific fields
+      category: request.category,
+      priority: request.priority,
+      user: request.user ? {
+        _id: request.user._id,
+        name: request.user.name // Show requester name
+      } : null
+    }));
+
+    res.json({
+      success: true,
+      requests: publicRequests,
+      pagination: {
+        current: parseInt(page),
+        total: Math.ceil(total / parseInt(limit)),
+        count: publicRequests.length,
+        totalRequests: total
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching public requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch requests'
+    });
+  }
+});
+
+// Get public blood requests (for donation) - MUST come before /:id route
+router.get('/public/blood', auth, async (req, res) => {
+  try {
+    const requests = await Request.find({
+      type: 'blood',
+      status: 'pending', // Only show pending requests
+      user: { $ne: req.user.userId }, // Exclude user's own requests
+      $or: [
+        { accepters: { $exists: false } }, // No accepters field
+        { accepters: { $size: 0 } } // Empty accepters array
+      ]
+    })
+    .populate('user', 'name')
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+    res.json({
+      success: true,
+      requests: requests.map(request => ({
+        _id: request._id,
+        name: request.name,
+        phone: 'Hidden', // Hide phone until accepted
+        location: request.location,
+        bloodType: request.bloodType,
+        urgencyLevel: request.urgencyLevel,
+        status: request.status,
+        createdAt: request.createdAt,
+        requesterName: request.user ? request.user.name : 'Citizen',
+        user: request.user ? {
+          _id: request.user._id,
+          name: request.user.name // Show requester name
+        } : null
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching public blood requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch blood requests'
     });
   }
 });
@@ -497,47 +694,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Get public blood requests (for donation)
-router.get('/public/blood', auth, async (req, res) => {
-  try {
-    const requests = await Request.find({
-      type: 'blood',
-      status: 'pending', // Only show pending requests
-      user: { $ne: req.user.userId }, // Exclude user's own requests
-      $or: [
-        { accepters: { $exists: false } }, // No accepters field
-        { accepters: { $size: 0 } } // Empty accepters array
-      ]
-    })
-    .populate('user', 'name')
-    .sort({ createdAt: -1 })
-    .limit(50);
 
-    res.json({
-      success: true,
-      requests: requests.map(request => ({
-        _id: request._id,
-        name: request.name,
-        phone: 'Hidden', // Hide phone until accepted
-        location: request.location,
-        bloodType: request.bloodType,
-        urgencyLevel: request.urgencyLevel,
-        status: request.status,
-        createdAt: request.createdAt,
-        user: {
-          _id: request.user._id,
-          name: 'Hidden' // Hide requester name until accepted
-        }
-      }))
-    });
-  } catch (error) {
-    console.error('Error fetching public blood requests:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch blood requests'
-    });
-  }
-});
 
 // Get full contact details for accepted blood request (for requester and donor only)
 router.get('/:id/contacts', auth, async (req, res) => {
@@ -616,7 +773,7 @@ router.get('/:id/contacts', auth, async (req, res) => {
   }
 });
 
-// Volunteer for a blood request
+// Volunteer for any request (blood, elder_support, etc.)
 router.post('/:id/volunteer', auth, async (req, res) => {
   try {
     const request = await Request.findById(req.params.id).populate('user', 'name email');
@@ -628,10 +785,11 @@ router.post('/:id/volunteer', auth, async (req, res) => {
       });
     }
 
-    if (request.type !== 'blood') {
+    // Allow volunteering for blood, elder_support, and complaint requests
+    if (!['blood', 'elder_support', 'complaint'].includes(request.type)) {
       return res.status(400).json({
         success: false,
-        message: 'Can only volunteer for blood requests'
+        message: 'Can only volunteer for blood, elder support, and complaint requests'
       });
     }
 
@@ -652,13 +810,23 @@ router.post('/:id/volunteer', auth, async (req, res) => {
       });
     }
 
-    // Check if request already has an accepter (one-to-one system)
-    if (request.accepters && request.accepters.length > 0) {
+    // Check if request already has an accepter (one-to-one system for blood requests only)
+    if (request.type === 'blood' && request.accepters && request.accepters.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'This blood request has already been accepted by another donor'
       });
     }
+
+    // For elder support, also limit to one volunteer for now
+    if (request.type === 'elder_support' && request.accepters && request.accepters.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This elder support request has already been accepted by another volunteer'
+      });
+    }
+
+    // For complaints, allow multiple volunteers but check if this user already applied
 
     // Check if user already volunteered
     const alreadyVolunteered = request.accepters.some(
@@ -672,15 +840,18 @@ router.post('/:id/volunteer', auth, async (req, res) => {
       });
     }
 
-    // Add volunteer to the request (only one allowed)
+    // Add volunteer to the request
     request.accepters.push({
       user: req.user.userId,
       acceptedAt: new Date(),
       status: 'accepted'
     });
 
-    // Update request status to accepted
-    request.status = 'accepted';
+    // Update request status to accepted (for blood and elder support)
+    // For complaints, keep status as pending until admin assigns
+    if (request.type !== 'complaint') {
+      request.status = 'accepted';
+    }
 
     await request.save();
 
@@ -688,30 +859,46 @@ router.post('/:id/volunteer', auth, async (req, res) => {
     await request.populate('user', 'name phone email');
     await request.populate('accepters.user', 'name phone email');
 
+    const responseData = {
+      _id: request._id,
+      type: request.type,
+      location: request.location,
+      status: request.status,
+      createdAt: request.createdAt,
+      acceptedAt: new Date(),
+      userRole: request.type === 'blood' ? 'donor' : 'volunteer',
+      requester: {
+        name: request.user.name,
+        phone: request.user.phone,
+        email: request.user.email
+      },
+      volunteer: {
+        name: volunteer.name,
+        phone: volunteer.phone,
+        email: volunteer.email,
+        acceptedAt: new Date()
+      }
+    };
+
+    // Add type-specific fields
+    if (request.type === 'blood') {
+      responseData.bloodType = request.bloodType;
+      responseData.urgencyLevel = request.urgencyLevel;
+    } else if (request.type === 'elder_support') {
+      responseData.serviceType = request.serviceType;
+      responseData.dueDate = request.dueDate;
+      responseData.urgencyLevel = request.urgencyLevel;
+    } else if (request.type === 'complaint') {
+      responseData.title = request.title;
+      responseData.description = request.description;
+      responseData.category = request.category;
+      responseData.priority = request.priority;
+    }
+
     res.json({
       success: true,
       message: 'Thank you for volunteering! You can now see the requester\'s contact details.',
-      request: {
-        _id: request._id,
-        bloodType: request.bloodType,
-        urgencyLevel: request.urgencyLevel,
-        location: request.location,
-        status: request.status,
-        createdAt: request.createdAt,
-        acceptedAt: new Date(),
-        userRole: 'donor',
-        requester: {
-          name: request.user.name,
-          phone: request.user.phone,
-          email: request.user.email
-        },
-        donor: {
-          name: volunteer.name,
-          phone: volunteer.phone,
-          email: volunteer.email,
-          acceptedAt: new Date()
-        }
-      }
+      request: responseData
     });
   } catch (error) {
     console.error('Error volunteering for request:', error);

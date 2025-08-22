@@ -6,7 +6,9 @@ import {
   PhoneIcon,
   UserIcon,
   XMarkIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  HeartIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { showError } from '../utils/alerts';
 
@@ -151,10 +153,28 @@ const AcceptedRequestsPage = () => {
                 </div>
 
                 {/* Request Info */}
-                <div className="space-y-3">
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+                      <HeartIcon className="w-5 h-5 text-red-400" />
+                    </div>
+                    <span className="text-white font-medium">
+                      Blood Donation Request
+                    </span>
+                  </div>
+
                   <div className="flex items-center space-x-2">
                     <UserIcon className="w-4 h-4 text-gray-400" />
-                    <span className="text-white font-medium">{request.name}</span>
+                    <span className="text-gray-300 text-sm">
+                      Requester: {request.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <PhoneIcon className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-300 text-sm">
+                      Contact: {request.phone}
+                    </span>
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -170,6 +190,15 @@ const AcceptedRequestsPage = () => {
                       Accepted: {new Date(request.acceptance.acceptedAt).toLocaleDateString()}
                     </span>
                   </div>
+
+                  {request.urgencyLevel && (
+                    <div className="flex items-center space-x-2">
+                      <ExclamationTriangleIcon className="w-4 h-4 text-gray-400" />
+                      <span className={`text-sm font-medium ${getUrgencyColor(request.urgencyLevel)}`}>
+                        {request.urgencyLevel.toUpperCase()} Priority
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Button */}
@@ -178,9 +207,9 @@ const AcceptedRequestsPage = () => {
                     e.stopPropagation();
                     openRequestModal(request);
                   }}
-                  className="w-full mt-4 bg-gradient-to-r from-green-500 to-blue-500 text-white py-2 rounded-lg hover:from-green-600 hover:to-blue-600 transition-all duration-300 font-medium"
+                  className="w-full bg-gradient-to-r from-green-500 to-blue-500 text-white py-2 rounded-lg hover:from-green-600 hover:to-blue-600 transition-all duration-300 font-medium"
                 >
-                  View Details
+                  View Contact Details
                 </button>
               </motion.div>
             ))}

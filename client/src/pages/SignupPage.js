@@ -16,6 +16,7 @@ const SignupPage = () => {
     confirmPassword: '',
     phone: '',
     role: 'citizen',
+    volunteerKey: '',
     address: {
       street: '',
       city: '',
@@ -213,12 +214,31 @@ const SignupPage = () => {
                   error={errors.role}
                 />
               </div>
+
+              {/* Volunteer Key Field - Only show when volunteer is selected */}
+              {formData.role === 'volunteer' && (
+                <div className="mt-6">
+                  <FormInput
+                    label="Volunteer Access Key"
+                    name="volunteerKey"
+                    type="text"
+                    value={formData.volunteerKey}
+                    onChange={handleChange}
+                    placeholder="Enter your volunteer access key"
+                    required
+                    error={errors.volunteerKey}
+                  />
+                  <p className="text-sm text-gray-300 mt-2">
+                    Contact your organization administrator to get your volunteer access key.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Security Section */}
             <div className="mb-10">
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">2</div>
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">2</div>
                 Security
               </h2>
 
@@ -246,6 +266,8 @@ const SignupPage = () => {
                 />
               </div>
             </div>
+
+
 
             {/* Address Section */}
             <div className="mb-10">

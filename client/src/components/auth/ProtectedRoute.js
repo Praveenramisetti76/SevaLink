@@ -19,8 +19,24 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Wait for user data to be fully loaded before checking role
+  if (!user || !user.role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
   if (requiredRole && user?.role !== requiredRole) {
-    return <Navigate to="/dashboard" replace />;
+    // Redirect based on user role
+    if (user?.role === 'volunteer') {
+      return <Navigate to="/volunteer-dashboard" replace />;
+    } else if (user?.role === 'admin') {
+      return <Navigate to="/admin" replace />;
+    } else {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return children;
